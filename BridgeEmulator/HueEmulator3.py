@@ -1567,7 +1567,7 @@ class S(BaseHTTPRequestHandler):
                 #create a new user key in case none is available
                 if len(bridge_config["config"]["whitelist"]) == 0:
                     bridge_config["config"]["whitelist"][str(uuid.uuid1()).replace('-', '')] = {"create date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),"last use date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),"name": "WebGui User"}
-                self._set_end_headers(bytes(json.dumps([{"success": {"user": list(bridge_config["config"]["whitelist"])[0]}],separators=(',', ':'),ensure_ascii=False), "utf8"))
+                self._set_end_headers(bytes(json.dumps([{"success": {"user": list(bridge_config["config"]["whitelist"])[0]}}],separators=(',', ':'),ensure_ascii=False), "utf8"))
             else:
                 self._set_end_headers(bytes(json.dumps([{"error": "invalid credentials"}],separators=(',', ':'),ensure_ascii=False), "utf8"))
         elif len(url_pices) == 4: #data was posted to a location
