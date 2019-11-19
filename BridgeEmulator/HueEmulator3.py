@@ -184,7 +184,7 @@ def initialize():
     bridge_config["config"]["gateway"] = ip_pices[0] + "." +  ip_pices[1] + "." + ip_pices[2] + ".1"
     bridge_config["config"]["mac"] = mac[0] + mac[1] + ":" + mac[2] + mac[3] + ":" + mac[4] + mac[5] + ":" + mac[6] + mac[7] + ":" + mac[8] + mac[9] + ":" + mac[10] + mac[11]
     bridge_config["config"]["bridgeid"] = (mac[:6] + 'FFFE' + mac[6:]).upper()
-    load_alarm_config()
+    loadAlarmConfig()
     generateDxState()
     sanitizeBridgeScenes()
     ## generte security key for Hue Essentials remote access
@@ -346,7 +346,7 @@ def updateConfig():
         bridge_config["capabilities"]["timezones"] = {"values": timezones}
 
     if "alarm_config" in bridge_config:
-        bridge_config["emulator"]["alarm_config"] = bridge_config["alarm_config"]
+        bridge_config["emulator"]["alarmConfig"] = bridge_config["alarm_config"]
         del bridge_config["alarm_config"]
 
 def addTradfriDimmer(sensor_id, group_id):
@@ -424,16 +424,16 @@ def resourceRecycle():
                 del bridge_config[resource][key]
 
 
-def load_alarm_config():  #load and configure alarm virtual light
-    if bridge_config["alarm_config"]["mail_username"] != "":
+def loadAlarmConfig():  #load and configure alarm virtual light
+    if bridge_config["emulator"]["alarmConfig"]["mail_username"] != "":
         logging.info("E-mail account configured")
-        if "virtual_light" not in bridge_config["alarm_config"]:
+        if "virtual_light" not in bridge_config["emulator"]["alarmConfig"]:
             logging.info("Send test email")
-            if sendEmail(bridge_config["alarm_config"], "dummy test"):
+            if sendEmail(bridge_config["emulator"]["alarmConfig"], "dummy test"):
                 logging.info("Mail succesfully sent\nCreate alarm virtual light")
                 new_light_id = nextFreeId(bridge_config, "lights")
                 bridge_config["lights"][new_light_id] = {"state": {"on": False, "bri": 200, "hue": 0, "sat": 0, "xy": [0.690456, 0.295907], "ct": 461, "alert": "none", "effect": "none", "colormode": "xy", "reachable": True}, "type": "Extended color light", "name": "Alarm", "uniqueid": "1234567ffffff", "modelid": "LLC012", "swversion": "66009461"}
-                bridge_config["alarm_config"]["virtual_light"] = new_light_id
+                bridge_config["emulator"]["alarmConfig"]["virtual_light"] = new_light_id
             else:
                 logging.info("Mail test failed")
 
@@ -956,9 +956,9 @@ def websocketClient():
                         if "buttonevent" in message["state"] and bridge_config["deconz"]["sensors"][message["id"]]["modelid"] in ["TRADFRI remote control","RWL021"]:
                             if message["state"]["buttonevent"] in [2001, 3001, 4001, 5001]:
                                 Thread(target=longPressButton, args=[bridge_sensor_id, message["state"]["buttonevent"]]).start()
-                        if "presence" in message["state"] and message["state"]["presence"] and "virtual_light" in bridge_config["alarm_config"] and bridge_config["lights"][bridge_config["alarm_config"]["virtual_light"]]["state"]["on"]:
-                            sendEmail(bridge_config["alarm_config"], bridge_config["sensors"][bridge_sensor_id]["name"])
-                            bridge_config["alarm_config"]["virtual_light"]
+                        if "presence" in message["state"] and message["state"]["presence"] and "virtual_light" in bridge_config["emulator"]["alarmConfig"] and bridge_config["lights"][bridge_config["emulator"]["alarmConfig"]["virtual_light"]]["state"]["on"]:
+                            sendEmail(bridge_config["emulator"]["alarmConfig"], bridge_config["sensors"][bridge_sensor_id]["name"])
+                            bridge_config["emulator"]["alarmConfig"]["virtual_light"]
                     elif "config" in message and bridge_config["sensors"][bridge_sensor_id]["config"]["on"]:
                         bridge_config["sensors"][bridge_sensor_id]["config"].update(message["config"])
                 elif message["r"] == "lights":
@@ -1148,7 +1148,7 @@ def splitLightsToDevices(group, state, scene={}):
 def groupZero(state):
     lightsData = {}
     for light in bridge_config["lights"].keys():
-        if "virtual_light" not in bridge_config["alarm_config"] or light != bridge_config["alarm_config"]["virtual_light"]:
+        if "virtual_light" not in bridge_config["emulator"]["alarmConfig"] or light != bridge_config["emulator"]["alarmConfig"]["virtual_light"]:
             lightsData[light] = state
     Thread(target=splitLightsToDevices, args=["0", {}, lightsData]).start()
     for group in bridge_config["groups"].keys():
@@ -1464,8 +1464,8 @@ class S(BaseHTTPRequestHandler):
                                     bridge_config["sensors"][lightSensorId]["state"].update({"lightlevel": 6000, "dark": True, "daylight": False, "lastupdated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S") })
 
                             #if alarm is activ trigger the alarm
-                            if "virtual_light" in bridge_config["alarm_config"] and bridge_config["lights"][bridge_config["alarm_config"]["virtual_light"]]["state"]["on"] and bridge_config["sensors"][sensorId]["state"]["presence"] == True:
-                                sendEmail(bridge_config["alarm_config"], bridge_config["sensors"][sensorId]["name"])
+                            if "virtual_light" in bridge_config["emulator"]["alarmConfig"] and bridge_config["lights"][bridge_config["emulator"]["alarmConfig"]["virtual_light"]]["state"]["on"] and bridge_config["sensors"][sensorId]["state"]["presence"] == True:
+                                sendEmail(bridge_config["emulator"]["alarmConfig"], bridge_config["sensors"][sensorId]["name"])
                                 #triger_horn() need development
                         rulesProcessor(sensorId, current_time) #process the rules to perform the action configured by application
             self._set_end_headers(bytes("done", "utf8"))
@@ -1553,11 +1553,7 @@ class S(BaseHTTPRequestHandler):
         self.data_string = self.read_http_request_body()
         if self.path == "/updater":
             logging.info("check for updates")
-            update_data = json.loads(sendRequest("https://raw.githubusercontent.com/diyhue/diyHue/master/BridgeEmulator/updater", "GET", "{}"))
-            for category in update_data.keys():
-                for key in update_data[category].keys():
-                    logging.info("patch " + category + " -> " + key )
-                    bridge_config[category][key] = update_data[category][key]
+            Popen(cwd + "/check_updates.sh")
             self._set_end_headers(bytes(json.dumps([{"success": {"/config/swupdate/checkforupdate": True}}],separators=(',', ':'),ensure_ascii=False), "utf8"))
         else:
             raw_json = self.data_string.decode('utf8')
