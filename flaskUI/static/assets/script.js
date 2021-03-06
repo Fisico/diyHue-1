@@ -13,6 +13,17 @@ $(document).ready(function() {
     $('.sidebar').toggleClass('active');
   });
 
+  /* colorpicker use https://iro.js.org/guide.html as reference*/
+  var colorPicker = new iro.ColorPicker('#colorPicker', {
+    layout: [
+      { 
+        component: iro.ui.Wheel,
+        options: {}
+      },
+    ]
+  });
+
+ /* ENDcolorpicker*/
 
   $('.slideContainer').change( function() {
             var element = $(this).parent().attr('id').split("_")[1]
