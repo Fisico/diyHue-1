@@ -189,7 +189,7 @@ h1.contentheader{
 
 
 .lightGrid{
-  background: rgba(0, 0, 0, .5);
+  background: rgba(0, 0, 0, .6);
   border-radius: 15px;
   margin: 50px;
   padding: 30px;
@@ -197,9 +197,9 @@ h1.contentheader{
 }
 
 .lightGrid .headline{
-  color: #eee;
+  color: #B9B9B9;
   text-transform: uppercase;
-  font-size: 13pt;
+  font-size: 12pt;
   margin: 0 0 10px 10px;
 
 }
@@ -258,7 +258,6 @@ h1.contentheader{
 
 .groupContainer .textContainer{
   float: left;
-  height: 90px;
   margin: 20px 0 0 10px;
 }
 
@@ -303,9 +302,6 @@ h1.contentheader{
 
 }
 
-.modal.content .lightContainer{
-
-}
 
 /*END Modal Styling*/
 
@@ -471,8 +467,9 @@ input[type="range"]::-ms-fill-upper {
 }
 
 .topBar P{
-  margin: 0 0 10px 5px;
-  font-size: 14pt;
+  margin: 0 0 5px 5px;
+  color: #B9B9B9;
+  font-size: 12pt;
 }
 
 .topBar .btnBack{
@@ -487,8 +484,23 @@ input[type="range"]::-ms-fill-upper {
 }
 
 .topBar .btnBack i{
-  margin: 10px 10px 0 10px;
+  margin: 5px 10px 0 10px;
   font-size: 15pt;
+}
+
+.topbar .switchContainer{
+  float: right;
+  margin: 10px 0 0 0;
+}
+
+.topbar .switchContainer p{
+  float: right;
+  color: #eee;
+  margin: 2px 50px 0 10px;
+}
+
+.topbar .switchContainer .slider{
+  background: rgba(0, 0, 0, .9);
 }
 
 
@@ -563,6 +575,10 @@ input[type="range"]::-ms-fill-upper {
   .expndGroupContainer{
     width: 100%;
     margin: 5px 0 0 0;
+  }
+
+  .topbar .switchContainer p{
+    margin: 2px 15px 0 10px;
   }
 
 }
