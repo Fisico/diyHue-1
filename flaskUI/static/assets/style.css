@@ -488,6 +488,21 @@ input[type="range"]::-ms-fill-upper {
   font-size: 15pt;
 }
 
+.topbar .switchContainer{
+  float: right;
+  margin: 10px 0 0 0;
+}
+
+.topbar .switchContainer p{
+  float: right;
+  color: #eee;
+  margin: 2px 50px 0 10px;
+}
+
+.topbar .switchContainer .slider{
+  background: rgba(0, 0, 0, .9);
+}
+
 
 
 .expndGroup {
@@ -560,6 +575,10 @@ input[type="range"]::-ms-fill-upper {
   .expndGroupContainer{
     width: 100%;
     margin: 5px 0 0 0;
+  }
+
+  .topbar .switchContainer p{
+    margin: 2px 15px 0 10px;
   }
 
 }
