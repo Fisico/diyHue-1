@@ -23,7 +23,7 @@ def _write_json(path, contents):
 
 class Config:
     yaml_config = None
-    projectDir = '/opt/hue-emulator'  # cwd = os.path.split(os.path.abspath(__file__))[0]
+    projectDir = '/opt/hue-emulator'
     configDir = projectDir + '/config'
 
     def __init__(self):
@@ -31,25 +31,24 @@ class Config:
             os.makedirs(self.configDir)
 
     def load_config(self):
-        self.yaml_config = {"apiUsers": {}, "lights": {}, "groups": {}, "scenes": {}, "config": {}, "rules": {}, "resourcelinks": {}, "schedules": {}, "sensors": {}}
+        self.yaml_config = {"apiUsers": {}, "lights": {}, "groups": {}, "scenes": {}, "config": {}, "rules": {}, "resourcelinks": {}, "schedules": {}, "sensors": {}, "v2": {}, "sensors_id": {}, "temp": {"scanResult": {"lastscan": "none"}}}
         try:
             #load config
             if os.path.exists(self.configDir + "/config.yaml"):
                 config = _open_yaml(self.configDir + "/config.yaml")
+                os.environ['TZ'] = config["timezone"]
                 config["apiUsers"] = {}
                 for user, data in config["whitelist"].items():
                     self.yaml_config["apiUsers"][user] = ApiUser(user, data["name"], data["client_key"], data["create_date"], data["last_use_date"])
                 del config["whitelist"]
                 self.yaml_config["config"] = config
-                #define group 0
-                self.yaml_config["groups"]["0"] = Group({"name":"Group 0","id_v1": "0","type":"LightGroup","state":{"all_on":False,"any_on":True},"recycle":False,"action":{"on":False,"bri":165,"hue":8418,"sat":140,"effect":"none","xy":[0.6635,0.2825],"ct":366,"alert":"select","colormode":"hs"}})
             # load lights
             if os.path.exists(self.configDir + "/lights.yaml"):
                 lights = _open_yaml(self.configDir + "/lights.yaml")
                 for light, data in lights.items():
                     data["id_v1"] = light
                     self.yaml_config["lights"][light] = Light(data)
-                    self.yaml_config["groups"]["0"].add_light(self.yaml_config["lights"][light])
+                    #self.yaml_config["groups"]["0"].add_light(self.yaml_config["lights"][light])
             #groups
             if os.path.exists(self.configDir + "/groups.yaml"):
                 groups = _open_yaml(self.configDir + "/groups.yaml")
@@ -61,6 +60,9 @@ class Config:
                         objctsList.append(self.yaml_config["lights"][light])
                     data["lights"] = objctsList
                     self.yaml_config["groups"][group] = Group(data)
+            else:
+                #define group 0
+                self.yaml_config["groups"]["0"] = Group({"name":"Group 0","id_v1": "0","type":"LightGroup","state":{"all_on":False,"any_on":True},"recycle":False,"action":{"on":False,"bri":165,"hue":8418,"sat":140,"effect":"none","xy":[0.6635,0.2825],"ct":366,"alert":"select","colormode":"hs"}})
             #scenes
             if os.path.exists(self.configDir + "/scenes.yaml"):
                 scenes = _open_yaml(self.configDir + "/scenes.yaml")
@@ -98,15 +100,15 @@ class Config:
                     owner = self.yaml_config["apiUsers"][data["owner"]]
                     data["owner"] = owner
                     self.yaml_config["schedules"][schedule] = Schedule(data)
+            #sensors
             if os.path.exists(self.configDir + "/sensors.yaml"):
-                #sensors
                 sensors = _open_yaml(self.configDir + "/sensors.yaml")
                 for sensor, data in sensors.items():
                     data["id_v1"] = sensor
                     self.yaml_config["sensors"][sensor] = Sensor(data)
                     self.yaml_config["groups"]["0"].add_sensor(self.yaml_config["sensors"][sensor])
             else:
-                data = {"config": {"configured": False, "on": True}, "modelid": "PHDL00", "state":{"daylight":None, "lastupdated":"none"}, "name": "Daylight", "type": "Daylight"}
+                data = {"config": {"configured": False, "on": True}, "modelid": "PHDL00", "state":{"daylight":None, "lastupdated":"none"}, "name": "Daylight", "type": "Daylight", "id_v1": "1"}
                 self.yaml_config["sensors"]["1"] = Sensor(data)
                 self.yaml_config["groups"]["0"].add_sensor(self.yaml_config["sensors"]["1"])
             if os.path.exists(self.configDir + "/sensors.yaml"):

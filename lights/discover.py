@@ -3,13 +3,14 @@ import configManager
 import socket
 import json
 from time import sleep
+from datetime import datetime
 from services.deconz import scanDeconz
 from lights.protocols import mqtt, yeelight, native, native_single, native_multi, tasmota, shelly, esphome, tradfri
-from functions.core import  generateDxState
-
+import HueObjects
+from functions.core import nextFreeId
+from lights.light_types import lightTypes
 logging = logManager.logger.get_logger(__name__)
 bridgeConfig = configManager.bridgeConfig.yaml_config
-newLights = configManager.runtimeConfig.newLights
 
 
 def pretty_json(data):
@@ -47,45 +48,55 @@ def find_hosts(port):
 
     return validHosts
 
-def addNewLight(modelid, name, emulatorLightConfig):
+def addNewLight(modelid, name, protocol, protocol_cfg):
     newLightID = nextFreeId(bridgeConfig, "lights")
     if modelid in lightTypes:
         light = lightTypes[modelid]
         light["name"] = name
+        light["id_v1"] = newLightID
         light["modelid"] = modelid
-        light["uniqueid"] = generate_unique_id()
-        bridgeConfig["lights"][newLightID] = light.copy()
-        bridgeConfig["emulator"]["lights"][newLightID] = emulatorLightConfig
-        newLights[newLightID] = {"name": name}
-        #add v2 uuid
-        lightUuid = str(uuid.uuid4())
-        zigBeeUuid = str(uuid.uuid4())
-        deviceUuid = str(uuid.uuid4())
-        bridgeConfig["emulator"]["links"]["v2"]["light"][lightUuid] = {"id_v1": newLightID, "zigBeeUuid": zigBeeUuid, "deviceUuid": deviceUuid}
-        bridgeConfig["emulator"]["links"]["v2"]["zigbee_connectivity"][zigBeeUuid] = {"lightUuid": lightUuid, "id_v1": newLightID, "resource": "lights"}
-        bridgeConfig["emulator"]["links"]["v2"]["device"][deviceUuid] = {"lightUuid": lightUuid, "id_v1": newLightID, "resource": "lights", "zigbee_connectivity": zigBeeUuid}
-        bridgeConfig["emulator"]["links"]["v1"]["lights"][newLightID] = lightUuid
-        if "streaming" in bridgeConfig["lights"][newLightID]["capabilities"]:
-            entertianmentUuid = str(uuid.uuid4())
-            bridgeConfig["emulator"]["links"]["v2"]["entertainment"][entertianmentUuid] = {"lightUuid": lightUuid, "id_v1": newLightID}
-            bridgeConfig["emulator"]["links"]["v2"]["device"][deviceUuid]["entertianmentUuid"] = entertianmentUuid
-            bridgeConfig["emulator"]["links"]["v2"]["light"][lightUuid]["entertianmentUuid"] = entertianmentUuid
+        light["protocol"] = protocol
+        light["protocol_cfg"] = protocol_cfg
+        bridgeConfig["lights"][newLightID] = HueObjects.Light(light)
+        bridgeConfig["groups"]["0"].add_light(bridgeConfig["lights"][newLightID])
         return newLightID
     return False
 
 
 def scanForLights(): #scan for ESP8266 lights and strips
-    newLights = {"lastscan": "active"}
+    bridgeConfig["temp"]["scanResult"] = {"lastscan": "active"}
+    detectedLights = []
     #return all host that listen on port 80
     device_ips = find_hosts(80)
     logging.info(pretty_json(device_ips))
-    mqtt.discover()
-    yeelight.discover()
-    native_multi.discover(device_ips) # native_multi probe all esp8266 lights with firmware from diyhue repo
-    tasmota.discover(device_ips)
-    shelly.discover(device_ips)
-    esphome.discover(device_ips)
-    tradfri.discover()
-    scanDeconz()
+    #mqtt.discover() # lights will be added by the service
+    yeelight.discover(detectedLights)
+    native_multi.discover(detectedLights,device_ips) # native_multi probe all esp8266 lights with firmware from diyhue repo
+    #tasmota.discover(detectedLights,device_ips)
+    #shelly.discover(detectedLights,device_ips)
+    #esphome.discover(detectedLights,device_ips)
+    #tradfri.discover(detectedLights)
+    #scanDeconz(detectedLights)
+    bridgeConfig["temp"]["scanResult"]["lastscan"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    for light in detectedLights:
+        # check if light is already present
+        lightIsNew = True
+        for key, lightObj in bridgeConfig["lights"].items():
+            if lightObj.protocol == light["protocol"]:
+                if light["protocol"] in ["native", "native_single", "native_multi"]:
+                     if lightObj.protocol_cfg["mac"] == light["protocol_cfg"]["mac"] and lightObj.protocol_cfg["light_nr"] == light["protocol_cfg"]["light_nr"]:
+                         logging.info("Update IP for light " + light["name"])
+                         lightObj.protocol_cfg["ip"] = light["protocol_cfg"]["ip"]
+                         lightIsNew = False
+                         break
+                elif light["protocol"] == "yeelight":
+                    if lightObj.protocol_cfg["id"] == light["protocol_cfg"]["id"]:
+                        logging.info("Update IP for light " + light["name"])
+                        lightObj.protocol_cfg["ip"] = light["protocol_cfg"]["ip"]
+                        lightIsNew = False
+        if lightIsNew:
+            logging.info("Add new light " + light["name"])
+            lightId = addNewLight(light["modelid"], light["name"], light["protocol"], light["protocol_cfg"])
+            bridgeConfig["temp"]["scanResult"][lightId] = {"name": light["name"]}
     configManager.bridgeConfig.save_config()
-    generateDxState()
+    return detectedLights

@@ -1,5 +1,6 @@
 import uuid
 import logManager
+import random
 from lights.light_types import lightTypes, sensorTypes
 from lights.protocols import protocols
 from datetime import datetime
@@ -7,13 +8,15 @@ from pprint import pprint
 
 logging = logManager.logger.get_logger(__name__)
 
+
 def genV2Uuid():
     return str(uuid.uuid4())
 
 
 def generate_unique_id():
     rand_bytes = [random.randrange(0, 256) for _ in range(3)]
-    return "00:17:88:01:00:%02x:%02x:%02x-0b" % (rand_bytes[0],rand_bytes[1],rand_bytes[2])
+    return "00:17:88:01:00:%02x:%02x:%02x-0b" % (rand_bytes[0], rand_bytes[1], rand_bytes[2])
+
 
 def incProcess(state, data):
     if "bri_inc" in data:
@@ -51,6 +54,7 @@ def incProcess(state, data):
 
     return data
 
+
 class ApiUser():
     def __init__(self, username, name, client_key, create_date=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"), last_use_date=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")):
         self.username = username
@@ -65,17 +69,6 @@ class ApiUser():
     def save(self):
         return {"name": self.name, "client_key": self.client_key, "create_date": self.create_date, "last_use_date": self.last_use_date}
 
-class Device():
-    def __init__(self, id_v2=genV2Uuid()):
-        self.id_v2 = id_v2
-        self.services = []
-
-    def add_service(self, service):
-        self.services.append(service)
-
-    def getV2Api(self):
-        result = {}
-
 
 class Light():
     def __init__(self, data):
@@ -83,29 +76,29 @@ class Light():
         self.modelid = data["modelid"]
         self.id_v1 = data["id_v1"]
         self.id_v2 = data["id_v2"] if "id_v2" in data else genV2Uuid()
-        self.swversion = data["swversion"] if "swversion" in data else generate_unique_id()
+        self.uniqueid = data["uniqueid"] if "uniqueid" in data else generate_unique_id()
         self.state = data["state"] if "state" in data else lightTypes[self.modelid]["state"]
         self.protocol = data["protocol"] if "protocol" in data else "dummy"
         self.config = data["config"] if "config" in data else lightTypes[self.modelid]["config"]
         self.protocol_cfg = data["protocol_cfg"] if "protocol_cfg" in data else {}
         self.streaming = False
 
-    def update_attr(self,newdata):
-        for key,value in newdata.items():
-            updateAttribute = getattr(self,key)
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
             if isinstance(updateAttribute, dict):
                 updateAttribute.update(value)
-                setattr(self,key,updateAttribute)
+                setattr(self, key, updateAttribute)
             else:
-                setattr(self,key,value)
+                setattr(self, key, value)
 
     def getV1Api(self):
         result = lightTypes[self.modelid]["v1_static"].copy()
         result["config"] = self.config
-        result["capabilities"]["streaming"]["renderer"] = self.streaming
         result["state"] = self.state
+        result["modelid"] = self.modelid
         result["name"] = self.name
-        result["swversion"] = self.swversion
+        result["uniqueid"] = self.uniqueid
         return result
 
     def updateLightState(self, state):
@@ -136,6 +129,52 @@ class Light():
                     logging.warning(self.name + " light error, details: %s", e)
                 return
 
+    def getDevice(self):
+        result = {"id": str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                       self.id_v2 + 'device')), "type": "device"}
+        result["metadata"] = {
+            "archetype": "sultan_bulb",
+            "name": self.name
+        }
+        result["product_data"] = {
+            "certified": True,
+            "manufacturer_name": "Signify Netherlands B.V.",
+            "model_id": self.modelid,
+            "product_archetype": "sultan_bulb",
+            "product_name": "Hue color lamp",
+            "software_version": "1.65.9"
+        }
+        result["services"] = [
+            {
+                "reference_id": self.id_v2,
+                "reference_type": "light",
+                "rid": self.id_v2,
+                "rtype": "light"
+            },
+            {
+                "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'zigbee_connectivity')),
+                "reference_type": "zigbee_connectivity",
+                "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'zigbee_connectivity')),
+                "rtype": "zigbee_connectivity"
+            },
+            {
+                "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'entertainment')),
+                "reference_type": "entertainment",
+                "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'entertainment')),
+                "rtype": "entertainment"
+            }
+        ]
+        return result
+
+    def getZigBee(self):
+        result = {}
+        result["id"] = str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                      self.id_v2 + 'zigbee_connectivity'))
+        result["id_v1"] = "/lights/" + self.id_v1
+        result["mac_address"] = self.uniqueid[:23]
+        result["status"] = "connected" if self.state["reachable"] else "connectivity_issue"
+        result["type"] = "zigbee_connectivity"
+        return result
 
     def getV2Api(self):
         result = {}
@@ -167,8 +206,8 @@ class Light():
         result["id"] = self.id_v2
         result["id_v1"] = "/lights/" + self.id_v1
         result["metadata"] = {"name": self.name}
-        if "archetype" in lightTypes[self.modelid]["v1_static"]["config"]:
-            result["metadata"]["archetype"] = lightTypes[self.modelid]["v1_static"]["config"]["archetype"]
+        if "archetype" in self.config:
+            result["metadata"]["archetype"] = self.config["archetype"]
         result["mode"] = "normal"
         result["on"] = {
             "on": self.state["on"]
@@ -177,10 +216,11 @@ class Light():
         return result
 
     def getV2Entertainment(self):
-        entertainmenUuid = uuid.uuid5(self.id_v2, 'entertainment')
+        entertainmenUuid = str(uuid.uuid5(
+            uuid.NAMESPACE_URL, self.id_v2 + 'entertainment'))
         result = {
             "id": entertainmenUuid,
-            "id_v1": "/lights/" + + self.id_v1,
+            "id_v1": "/lights/" + self.id_v1,
             "proxy": lightTypes[self.modelid]["v1_static"]["capabilities"]["streaming"]["proxy"],
             "renderer": lightTypes[self.modelid]["v1_static"]["capabilities"]["streaming"]["renderer"]
         }
@@ -227,10 +267,11 @@ class Light():
         return result
 
     def getObjectPath(self):
-        return {"resource": "lights","id" :self.id_v1}
+        return {"resource": "lights", "id": self.id_v1}
 
     def save(self):
-        result = {"id_v2": self.id_v2, "name": self.name, "modelid": self.modelid, "swversion": self.swversion, "state": self.state, "config": self.config, "protocol": self.protocol, "protocol_cfg": self.protocol_cfg}
+        result = {"id_v2": self.id_v2, "name": self.name, "modelid": self.modelid, "uniqueid": self.uniqueid,
+                  "state": self.state, "config": self.config, "protocol": self.protocol, "protocol_cfg": self.protocol_cfg}
         return result
 
 
@@ -258,14 +299,14 @@ class Group():
     def add_sensor(self, sensor):
         self.sensors.append(sensor)
 
-    def update_attr(self,newdata):
-        for key,value in newdata.items():
-            updateAttribute = getattr(self,key)
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
             if isinstance(updateAttribute, dict):
                 updateAttribute.update(value)
-                setattr(self,key,updateAttribute)
+                setattr(self, key, updateAttribute)
             else:
-                setattr(self,key,value)
+                setattr(self, key, value)
 
     def setV1Action(self, state, scene):
         lightsState = {}
@@ -292,23 +333,24 @@ class Group():
 
         queueState = {}
         for light in self.lights:
-            if light.id_v1 in lightsState: # apply only if the light belong to this group
+            if light.id_v1 in lightsState:  # apply only if the light belong to this group
                 light.state.update(lightsState[light.id_v1])
                 light.updateLightState(lightsState[light.id_v1])
                 if light.protocol in ["native_multi", "mqtt"]:
                     light.updateLightState(lightsState[light.id_v1])
                     if light.protocol_cfg["ip"] not in queueState:
-                        queueState[light.protocol_cfg["ip"]] = {"object": light, "lights":{}}
+                        queueState[light.protocol_cfg["ip"]] = {
+                            "object": light, "lights": {}}
                     if light.protocol == "native_multi":
-                        queueState[light.protocol_cfg["ip"]]["lights"][light.protocol_cfg["light_nr"]] = lightsState[light.id_v1]
-                    elif  light.protocol == "mqtt":
-                        queueState[light.protocol_cfg["ip"]]["lights"][light.protocol_cfg["command_topic"]] = lightsState[light.id_v1]
+                        queueState[light.protocol_cfg["ip"]
+                                   ]["lights"][light.protocol_cfg["light_nr"]] = lightsState[light.id_v1]
+                    elif light.protocol == "mqtt":
+                        queueState[light.protocol_cfg["ip"]
+                                   ]["lights"][light.protocol_cfg["command_topic"]] = lightsState[light.id_v1]
                 else:
                     light.setV1State(state)
         for device, state in queueState.items():
             state["object"].setV1State(state)
-
-
 
     def update_state(self):
         all_on = True
@@ -337,8 +379,10 @@ class Group():
         result["state"] = self.update_state()
         result["recycle"] = False
         if self.id_v1 == "0":
-            result["presence"] = {"state": {"presence": None,"presence_all": None,"lastupdated": "none"}}
-            result["lightlevel"] = {"state": {"dark": None, "dark_all": None, "daylight": None, "daylight_any": None,"lightlevel": None,"lightlevel_min": None,"lightlevel_max": None,"lastupdated": "none"}}
+            result["presence"] = {
+                "state": {"presence": None, "presence_all": None, "lastupdated": "none"}}
+            result["lightlevel"] = {"state": {"dark": None, "dark_all": None, "daylight": None, "daylight_any": None,
+                                              "lightlevel": None, "lightlevel_min": None, "lightlevel_max": None, "lastupdated": "none"}}
         else:
             result["class"] = self.icon_class
         result["action"] = self.action
@@ -357,7 +401,7 @@ class Group():
             "rtype": "grouped_light"
 
         })
-        result["id"] = uuid.uuid5(self.id_v2, 'room')
+        result["id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'room'))
         result["id_v1"] = "/groups/" + self.id_v1
         result["metadata"] = {
             "archetype": self.icon_class.replace(" ", "_").replace("'", "").lower(),
@@ -373,7 +417,6 @@ class Group():
 
         result["type"] = "room"
         return result
-
 
     def getV2GroupedLight(self):
         result = {}
@@ -395,11 +438,10 @@ class Group():
                                  [0.4000000059604645, 0.800000011920929, 0.0],
                                  [0.4000000059604645, 0.800000011920929, -0.4000000059604645]]
 
-        entertainmenUuid = uuid.uuid5(self.id_v2, 'entertainment')
         result = {
             "channels": [],
             "configuration_type": "screen",
-            "id": uuid,
+            "id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'entertainment_configuration')),
             "id_v1": "/groups/" + self.id_v1,
             "locations": {
                 "service_locations": []
@@ -421,7 +463,8 @@ class Group():
         channel_id = 0
         for light in self.lights:
             loops = 1
-            entertainmentUuid = uuid.uuid5(light.id_v2, 'entertainment')
+            entertainmentUuid = str(uuid.uuid5(
+                uuid.NAMESPACE_URL, light.id_v2 + 'entertainment'))
             gradientStrip = False
             if light.modelid in ["LCX001", "LCX002", "LCX003"]:
                 loops = 7
@@ -446,20 +489,36 @@ class Group():
                         "z": gradienStripPositions[x][2] if gradientStrip else self.locations[light.id_v1][2]
                     }
                 })
+                result["locations"]["service_locations"].append({
+                    "position": {
+                        "x": gradienStripPositions[x][0] if gradientStrip else self.locations[light.id_v1][0],
+                        "y": gradienStripPositions[x][1] if gradientStrip else self.locations[light.id_v1][1],
+                        "z": gradienStripPositions[x][2] if gradientStrip else self.locations[light.id_v1][2]
+                    },
+                    "service": {
+                        "reference_id": entertainmentUuid,
+                        "reference_type": "entertainment",
+                        "rid": entertainmentUuid,
+                        "rtype": "entertainment"
+                    }
+
+                })
             channel_id += 1
 
         return result
 
     def getObjectPath(self):
-        return {"resource": "groups","id" :self.id_v1}
+        return {"resource": "groups", "id": self.id_v1}
 
     def save(self):
-        result = {"id_v2": self.id_v2, "name": self.name, "icon_class": self.icon_class, "lights": [], "action": self.action, "type": self.type}
+        result = {"id_v2": self.id_v2, "name": self.name, "icon_class": self.icon_class,
+                  "lights": [], "action": self.action, "type": self.type}
         for light in self.lights:
             result["lights"].append(light.id_v1)
         if self.type == "Entertainment":
             result["locations"] = self.locations
         return result
+
 
 class Scene():
 
@@ -473,7 +532,8 @@ class Scene():
         self.picture = data["picture"] if "picture" in data else ""
         self.image = data["image"] if "image" in data else ""
         self.recycle = data["recycle"] if "recycle" in data else False
-        self.lastupdated = data["lastupdated"] if "lastupdated" in data else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        self.lastupdated = data["lastupdated"] if "lastupdated" in data else datetime.utcnow(
+        ).strftime("%Y-%m-%dT%H:%M:%S")
         self.lightstates = data["lightstates"] if "lightstates" in data else {}
         self.group = data["group"] if "group" in data else None
         self.lights = data["lights"] if "lights" in data else []
@@ -549,11 +609,21 @@ class Scene():
         result["type"] = "scene"
         return result
 
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
+            if isinstance(updateAttribute, dict):
+                updateAttribute.update(value)
+                setattr(self, key, updateAttribute)
+            else:
+                setattr(self, key, value)
+
     def getObjectPath(self):
-        return {"resource": "scenes","id" :self.id_v1}
+        return {"resource": "scenes", "id": self.id_v1}
 
     def save(self):
-        result = {"id_v2": self.id_v2, "name": self.name, "owner": self.owner.username,"type": self.type, "picture": self.picture, "image": self.image, "recycle": self.recycle, "lastupdated": self.lastupdated, "lights": [], "lightstates": {}}
+        result = {"id_v2": self.id_v2, "name": self.name, "owner": self.owner.username, "type": self.type, "picture": self.picture,
+                  "image": self.image, "recycle": self.recycle, "lastupdated": self.lastupdated, "lights": [], "lightstates": {}}
         for light in self.lights:
             result["lights"].append(light.id_v1)
         for light in self.lightstates:
@@ -571,7 +641,8 @@ class Rule():
         self.conditions = data["conditions"] if "conditions" in data else []
         self.owner = data["owner"]
         self.recycle = data["recycle"] if "recycle" in data else False
-        self.created = data["created"] if "created" in data else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        self.created = data["created"] if "created" in data else datetime.utcnow(
+        ).strftime("%Y-%m-%dT%H:%M:%S")
         self.lasttriggered = data["lasttriggered"] if "lasttriggered" in data else "none"
         self.timestriggered = data["timestriggered"] if "timestriggered" in data else 0
 
@@ -582,7 +653,7 @@ class Rule():
         self.condition.append(condition)
 
     def getObjectPath(self):
-        return {"resource": "rules","id" :self.id_v1}
+        return {"resource": "rules", "id": self.id_v1}
 
     def getV1Api(self):
         result = {}
@@ -595,6 +666,15 @@ class Rule():
         result["lasttriggered"] = self.lasttriggered
         result["timestriggered"] = self.timestriggered
         return result
+
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
+            if isinstance(updateAttribute, dict):
+                updateAttribute.update(value)
+                setattr(self, key, updateAttribute)
+            else:
+                setattr(self, key, value)
 
     def save(self):
         return self.getV1Api()
@@ -624,7 +704,79 @@ class Sensor():
         return result
 
     def getObjectPath(self):
-        return {"resource": "sensors","id" :self.id_v1}
+        return {"resource": "sensors", "id": self.id_v1}
+
+    def getDevice(self):
+        result = None
+        if self.modelid == "SML001" and self.type == "ZLLPresence":
+            result = {"id": str(uuid.uuid5(
+                uuid.NAMESPACE_URL, self.id_v2 + 'device')), "type": "device"}
+            result["metadata"] = {
+                "archetype": "unknown_archetype",
+                "name": self.name
+            }
+            result["product_data"] = {
+                "certified": True,
+                "manufacturer_name": "Signify Netherlands B.V.",
+                "model_id": "SML001",
+                "product_archetype": "unknown_archetype",
+                "product_name": "Hue motion sensor",
+                "software_version": "1.1.27575"
+            }
+            result["services"] = [
+                {
+                    "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'motion')),
+                    "reference_type": "motion",
+                    "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'motion')),
+                    "rtype": "motion"
+                },
+                {
+                    "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'battery')),
+                    "reference_type": "battery",
+                    "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'battery')),
+                    "rtype": "battery"
+                },
+                {
+                    "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'zigbee_connectivity')),
+                    "reference_type": "zigbee_connectivity",
+                    "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'zigbee_connectivity')),
+                    "rtype": "zigbee_connectivity"
+                },
+                {
+                    "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'light_level')),
+                    "reference_type": "light_level",
+                    "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'light_level')),
+                    "rtype": "light_level"
+                },
+                {
+                    "reference_id": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'temperature')),
+                    "reference_type": "temperature",
+                    "rid": str(uuid.uuid5(uuid.NAMESPACE_URL, self.id_v2 + 'temperature')),
+                    "rtype": "temperature"
+                }
+            ]
+        return result
+
+    def getZigBee(self):
+        result = None
+        if self.modelid == "SML001" and self.type == "ZLLPresence":
+            result = {}
+            result["id"] = str(uuid.uuid5(
+                uuid.NAMESPACE_URL, self.id_v2 + 'zigbee_connectivity'))
+            result["id_v1"] = "/sensors/" + self.id_v1
+            result["mac_address"] = self.uniqueid[:23]
+            result["status"] = "connected"
+            result["type"] = "zigbee_connectivity"
+        return result
+
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
+            if isinstance(updateAttribute, dict):
+                updateAttribute.update(value)
+                setattr(self, key, updateAttribute)
+            else:
+                setattr(self, key, value)
 
     def save(self):
         result = {}
@@ -655,7 +807,8 @@ class ResourceLink():
         result["description"] = self.description
         links = []
         for link in self.links:
-            links.append("/" + link.getObjectPath()["resource"] + "/" + link.getObjectPath()["id"])
+            links.append("/" + link.getObjectPath()
+                         ["resource"] + "/" + link.getObjectPath()["id"])
         result["links"] = links
         result["owner"] = self.owner.username
         return result
@@ -666,12 +819,14 @@ class ResourceLink():
 
 class Schedule():
     def __init__(self, data):
-        self.name = data["name"] if "name" in data else "schedule " +  data["id_v1"]
+        self.name = data["name"] if "name" in data else "schedule " + \
+            data["id_v1"]
         self.id_v1 = data["id_v1"]
         self.description = data["description"] if "description" in data else "none"
         self.command = data["command"] if "command" in data else {}
         self.time = data["time"] if "time" in data else None
-        self.created = data["created"] if "created" in data else datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        self.created = data["created"] if "created" in data else datetime.utcnow(
+        ).strftime("%Y-%m-%dT%H:%M:%S")
         self.status = data["status"] if "status" in data else "disabled"
         self.autodelete = data["autodelete"] if "autodelete" in data else True
         self.starttime = data["starttime"] if "starttime" in data else None
@@ -689,8 +844,17 @@ class Schedule():
         result["autodelete"] = self.autodelete
         return result
 
+    def update_attr(self, newdata):
+        for key, value in newdata.items():
+            updateAttribute = getattr(self, key)
+            if isinstance(updateAttribute, dict):
+                updateAttribute.update(value)
+                setattr(self, key, updateAttribute)
+            else:
+                setattr(self, key, value)
+
     def getObjectPath(self):
-        return {"resource": "schedule","id" :self.id_v1}
+        return {"resource": "schedule", "id": self.id_v1}
 
     def save(self):
-        return  self.getV1Api()
+        return self.getV1Api()

@@ -2,6 +2,7 @@ import configManager
 import logManager
 import uuid
 import json
+import os
 import requests
 from subprocess import Popen
 from threading import Thread
@@ -13,13 +14,13 @@ from functions.core import generateDxState, capabilities, staticConfig, nextFree
 from flask_restful import Resource
 from flask import request
 from functions.rules import rulesProcessor
+from services.entertainment import entertainmentService
+import HueObjects
+
 from pprint import pprint
-import HueObjects #import Light, Group, Scene, Rule, ResourceLink, Sensor, ApiUser
 logging = logManager.logger.get_logger(__name__)
 
 bridgeConfig = configManager.bridgeConfig.yaml_config
-newLights = configManager.runtimeConfig.newLights
-
 
 
 def authorize(username, resource='', resourceId='', resourceParam=''):
@@ -33,6 +34,19 @@ def authorize(username, resource='', resourceId='', resourceParam=''):
         return [{"error": {"type": 3, "address": "/" + resource + "/" + resourceId + "/" + resourceParam, "description": "resource, " + resource + "/" + resourceId + "/" + resourceParam + ", not available"}}]
     bridgeConfig["apiUsers"][username].last_use_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
     return ["success"]
+
+
+def buildConfig():
+    result = staticConfig()
+    config = bridgeConfig["config"]
+    result.update({"apiversion": config["apiversion"], "bridgeid": config["bridgeid"], "ipaddress": config["ipaddress"], "netmask": config["netmask"],"gateway": config["gateway"], "mac": config["mac"], "name": config["name"], "swversion": config["swversion"], "timezone": config["timezone"]})
+    result["UTC"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    result["localtime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    result["whitelist"] = {}
+    for key, user in bridgeConfig["apiUsers"].items():
+        result["whitelist"][key] = {"create date": user.create_date, "last use date": user.last_use_date, "name": user.name}
+    return result
+
 
 
 class NewUser(Resource):
@@ -49,13 +63,15 @@ class NewUser(Resource):
                 if postDict["devicetype"].startswith("Hue Essentials"):
                     username = "hueess" + username[-26:]
                 response = [{"success": {"username": username}}]
-                clientkey = None
+                client_key = None
                 if "generateclientkey" in postDict and postDict["generateclientkey"]:
-                    client_key = str(uuid.uuid1()).replace('-', '')
+                    client_key = str(uuid.uuid4()).replace('-', '').upper()
+                    #client_key = "321c0c2ebfa7361e55491095b2f5f9db"
+
                     response[0]["success"]["clientkey"] = client_key
-                bridgeConfig["apiUsers"][username] = HueObjectsApiUser(username, postDict["devicetype"], client_key)
+                bridgeConfig["apiUsers"][username] = HueObjects.ApiUser(username, postDict["devicetype"], client_key)
                 pprint(response)
-                #configManager.bridgeConfig.save_config()
+                configManager.bridgeConfig.save_config()
                 return response
             else:
                 return [{"error": {"type": 101, "address": "/api/", "description": "link button not pressed"}}]
@@ -66,7 +82,7 @@ class NewUser(Resource):
 class ShortConfig(Resource):
     def get(self):
         config = bridgeConfig["config"]
-        return {"apiversion": config["apiversion"], "bridgeid": config["bridgeid"], "datastoreversion": config["datastoreversion"], "factorynew": False, "mac": config["mac"], "modelid": config["modelid"], "name": config["name"], "replacesbridgeid": None, "starterkitid": "", "swversion": config["swversion"]}
+        return {"apiversion": config["apiversion"], "bridgeid": config["bridgeid"], "datastoreversion": staticConfig()["datastoreversion"], "factorynew": False, "mac": config["mac"], "modelid": "BSB002", "name": config["name"], "replacesbridgeid": None, "starterkitid": "", "swversion": config["swversion"]}
 
 
 class EntireConfig(Resource):
@@ -75,12 +91,12 @@ class EntireConfig(Resource):
         if "success" not in authorisation:
             return authorisation
         result = {}
+        result["config"] = buildConfig()
         for resource in ["lights", "groups", "scenes", "rules", "resourcelinks", "sensors"]:
             result[resource] = {}
             for resource_id in bridgeConfig[resource]:
-                result[resource][resource_id] = bridgeConfig[resource][resource_id].getV1Api()
-        if resource == "config":
-            result["config"] = staticConfig()
+                if resource_id != "0":
+                    result[resource][resource_id] = bridgeConfig[resource][resource_id].getV1Api()
         return result
 
 
@@ -90,15 +106,16 @@ class ResourceElements(Resource):
             if resource == "capabilities":
                 return capabilities()
             else:
-                responce = {}
+                response = {}
                 if resource in ["lights", "groups", "scenes", "rules", "resourcelinks", "sensors"]:
                     for object in bridgeConfig[resource]:
-                        responce[object] = bridgeConfig[resource][object].getV1Api()
+                        response[object] = bridgeConfig[resource][object].getV1Api()
                 elif resource == "config":
-                    responce = staticConfig()
-                return responce
+                    response = buildConfig()
+                return response
         elif resource == "config":
             config = bridgeConfig["config"]
+
             return {"name": config["name"], "datastoreversion": staticConfig()["datastoreversion"], "swversion": config["swversion"], "apiversion": config["apiversion"], "mac": config["mac"], "bridgeid": config["bridgeid"], "factorynew": False, "replacesbridgeid": None, "modelid": staticConfig()["modelid"], "starterkitid": ""}
         return [{"error": {"type": 1, "address": "/", "description": "unauthorized user"}}]
 
@@ -122,7 +139,7 @@ class ResourceElements(Resource):
                 for light in postDict["lights"]:
                     objLights.append(bridgeConfig["lights"][light])
                 postDict["lights"] = objLights
-            bridgeConfig[resource][new_object_id] = HueObjectsGroup(postDict)
+            bridgeConfig[resource][new_object_id] = HueObjects.Group(postDict)
         elif resource == "scenes":
             postDict["owner"] = bridgeConfig["apiUsers"][username]
             if "group" in postDict:
@@ -132,13 +149,13 @@ class ResourceElements(Resource):
                 for light, state in postDict["lightstates"].items():
                     objStates[bridgeConfig["lights"][light]] = state
                 postDict["lightstates"] = objStates
-            bridgeConfig[resource][new_object_id] = HueObjectsScene(postDict)
+            bridgeConfig[resource][new_object_id] = HueObjects.Scene(postDict)
         elif resource == "rules":
-            bridgeConfig[resource][new_object_id] = HueObjectsRule(postDict)
+            bridgeConfig[resource][new_object_id] = HueObjects.Rule(postDict)
         elif resource == "resourcelinks":
-            bridgeConfig[resource][new_object_id] = HueObjectsResourceLink(postDict)
+            bridgeConfig[resource][new_object_id] = HueObjects.ResourceLink(postDict)
         elif resource == "sensors":
-            bridgeConfig[resource][new_object_id] = HueObjectsSensor(postDict)
+            bridgeConfig[resource][new_object_id] = HueObjects.Sensor(postDict)
         logging.info(json.dumps([{"success": {"id": new_object_id}}],
                                 sort_keys=True, indent=4, separators=(',', ': ')))
         configManager.bridgeConfig.save_config()
@@ -149,12 +166,15 @@ class ResourceElements(Resource):
         if "success" not in authorisation:
             return authorisation
         putDict = request.get_json(force=True)
-        bridgeConfig[resource].update_attr(putDict)
+        bridgeConfig[resource].update(putDict)
+        if resource == "config" and "timezone" in putDict:
+            os.environ['TZ'] = putDict["timezone"]
         responseDictionary = []
         response_location = "/" + resource + "/"
         for key, value in putDict.items():
             responseDictionary.append(
                 {"success": {response_location + key: value}})
+        pprint(responseDictionary)
         return responseDictionary
 
 
@@ -166,8 +186,8 @@ class Element(Resource):
             return authorisation
 
         if resource in ["lights", "sensors"] and resourceid == "new":
-            response = newLights.copy()
-            newLights.clear()
+            response = bridgeConfig["temp"]["scanResult"]
+            pprint(response)
             return response
         if resource in ["lights", "groups", "scenes", "rules", "resourcelinks", "sensors"]:
             return bridgeConfig[resource][resourceid].getV1Api()
@@ -181,8 +201,33 @@ class Element(Resource):
 
         putDict = request.get_json(force=True)
         pprint(putDict)
-        bridgeConfig[resource][resourceid].update_attr(putDict)
+        currentTime = datetime.now()
 
+        if resource == "sensors":
+            if resourceid == "1":
+                bridgeConfig["sensors"]["1"].config["configured"] = True # mark daylight sensor as configured
+                bridgeConfig["config"]["daylight"] = putDict["config"]
+                return {"success": {"/sensors/1/config": putDict["config"]}}
+            elif "state" in putDict:
+                for state in putDict["state"].keys():
+                    bridgeConfig["sensors"][resourceid].dxstate[state] = currentTime
+
+        elif resource == "groups" and "stream" in putDict:
+            if "active" in putDict["stream"]:
+                if putDict["stream"]["active"]:
+                    logging.info("start hue entertainment")
+                    Thread(target=entertainmentService, args=[bridgeConfig["groups"][resourceid], bridgeConfig["apiUsers"][username]]).start()
+                else:
+                    logging.info("stop hue entertainent")
+                    Popen(["killall", "entertain-srv"])
+
+        updateDict = putDict.copy()
+        if "lights" in putDict:
+            lights = []
+            for light in putDict["lights"]:
+                lights.append(bridgeConfig["lights"][light])
+            updateDict["lights"] = lights
+        bridgeConfig[resource][resourceid].update_attr(updateDict)
         responseDictionary = []
         response_location = "/" + resource + "/" + resourceid + "/"
         for key, value in putDict.items():
