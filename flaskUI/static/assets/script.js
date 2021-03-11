@@ -1,4 +1,9 @@
-/* collapse sidebar */
+
+/* toggle lights/groups topbar */
+function toggleLights(x) {
+  x.classList.toggle("fas fa-lightbulb");
+}
+/* END toggle lights/groups topbar */
 
 function postData(t) {
   var e = new XMLHttpRequest;
@@ -8,10 +13,12 @@ function postData(t) {
   console.log(JSON.stringify(t)), e.send(JSON.stringify(t));
 }
 
+/* collapse sidebar */
 $(document).ready(function() {
   $('#sidebarCollapse').on('click', function() {
     $('.sidebar').toggleClass('active');
   });
+/* end collapse sidebar */
 
   /* colorpicker use https://iro.js.org/guide.html as reference*/
   var colorPicker = new iro.ColorPicker('#colorPicker', {
@@ -22,7 +29,6 @@ $(document).ready(function() {
       },
     ]
   });
-
  /* ENDcolorpicker*/
 
   $('.slideContainer').change( function() {

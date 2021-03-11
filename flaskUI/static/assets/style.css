@@ -15,7 +15,6 @@ body.loginBackground{
   background-image: linear-gradient(rgba(0, 0, 0, .5), rgba(0, 0, 0, .5)), url("images/background_login.jpg");
 }
 
-
 .content{
   width: 100%;
 }
@@ -38,7 +37,6 @@ h1.loginheadline{
   width: 100%;
 }
 
-
 .contentContainer{
   background: rgba(0,0,0,0.7);
   margin: 50px;
@@ -46,7 +44,6 @@ h1.loginheadline{
   color: #eee;
   padding: 30px;
 }
-
 
 h1.contentheader{
   margin-bottom: 30px;
@@ -87,7 +84,6 @@ h1.contentheader{
 
 .loginContainer .formContainer{
   width: 100%;
-
 }
 
 /* Login Form */
@@ -511,16 +507,32 @@ input[type="range"]::-ms-fill-upper {
     margin: 10px 0 0 0;
   }
 
-  .topbar .switchContainer p{
-    float: right;
-    color: #eee;
-    margin: 2px 50px 0 10px;
-  }
+    .topbar .switchContainer p{
+      float: right;
+      color: #eee;
+      margin: 2px 50px 0 10px;
+    }
 
-  .topbar .switchContainer .slider{
-    background: rgba(0, 0, 0, .9);
-  }
+    .topbar .switchContainer .slider{
+      background: rgba(0, 0, 0, .9);
+    }
 
+    .topbar .groupToggle{
+      float: right;
+      color: #aaa;
+      margin: 2px 50px 0 10px;
+      height: 100%;
+      line-height: 47px;
+      font-size: 20pt;
+    }
+
+    .topbar .groupToggle:active{
+      color: #fff;
+    }
+
+    .topbar .groupToggle:focus{
+      color: #fff;
+    }
 
 
 @media screen and (max-width: 750px) {
