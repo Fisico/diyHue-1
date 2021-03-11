@@ -80,28 +80,36 @@
 
       <div class="lightGrid">
 
+
         <!-- Trigger with <div class="overlayBtn"></div>-->
-        <div class="expndGroupContainer">
-          <div class="topBar">
-            <p>Room1</p>
-            <div class="btnBack"><i class="fas fa-caret-left"></i>Groups</div>
+        <div class="lightContainer textLight expanded">  
+          <div class="header">
+            <div class="icon"><i class="fas fa-caret-left"></i></div>
+            <div class="text">Groups</div>
           </div>
-          <div class="expndGroup"> <!-- Add class "textDark" to switch to dark text-->
-            <div class="header"> <!-- Add background color gradient of selected colorpicker value-->
-              <div class="textContainer">Light1</div> <!-- Change name like selected light in colorpicker-->
-              <div class="switchContainer">
-                <label class="switch">
-                  <input type="checkbox">
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <div class="slideContainer">
-                <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
-              </div>
-            </div>
+          <div class="iconContainer">
+            <i class="fas fa-lightbulb"></i>
+          </div>
+          <div class="textContainer">
+          <p>%Lightname%</p>
+          </div>
+          <div class="switchContainer">
+            <label class="switch">
+              <input type="checkbox">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="slideContainer">
+            <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+          </div>
+          <div class="dimmer">
             <div class="wheel" id="colorPicker"></div>
           </div>
         </div>
+        
+
+
+
         <!-- END Trigger with <div class="overlayBtn"></div>-->
 
         <div class="headline">Groups/Rooms</div>

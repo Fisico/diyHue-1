@@ -218,12 +218,67 @@ h1.contentheader{
   font-weight: 400;
 }
 
+
+
+
 .groupContainer .overlayBtn{
   position: absolute;
   height: 50px;
   width: 75%;
   top: 20px;
 }
+
+.lightContainer.expanded{
+  margin-top: 40px;
+  height: auto;
+  overflow: visible;
+  padding-top: .1px
+}
+
+  .lightContainer.expanded .slideContainer{
+    top: 75px;
+    height: 23px;
+  }
+
+  .lightContainer.expanded .dimmer{
+    background:rgba(0,0,0,0.4);
+    width: 100%;
+    margin-top: 80px;
+    border-radius: 8px;
+    padding: 30px 10px 20px 10px;
+  }
+
+  .lightContainer.expanded .header{
+    position: absolute;
+    margin-top: -35px;
+    width: 100%;
+    height: 30px;
+  }
+
+  .lightContainer.expanded .header .icon{
+    width: 30px;
+    height: 30px;
+    line-height:28px;
+    background: rgba(0, 0, 0, .7);
+    border-radius: 50%;
+    float: left;
+    font-size: 18pt;
+  }
+
+  .lightContainer.expanded .header i{
+    margin-left: 8px;
+  }
+
+  .lightContainer.expanded .header .text{
+    height: 30px;
+    line-height:26px;
+    margin-left: 10px;
+    color: #B9B9B9;
+    text-transform: uppercase;
+    font-size: 12pt;
+    float: left;
+  }
+
 
 .lightContainer.cyan, .groupContainer.cyan{
   background: rgb(60,60,60);
@@ -505,41 +560,6 @@ input[type="range"]::-ms-fill-upper {
 
 
 
-.expndGroup {
-  width: 100%;
-  background: rgba(0, 0, 0, .4);
-  border-radius: 8px;
-  color:#eee;
-}
-
-.expndGroup .header{
-  position: relative;
-  width: 100%;
-  height: 75px;
-  background: #272727;
-  border-radius: 8px;
-  -webkit-box-shadow: 0px 0px 10px 1px rgb(0 0 0 / 50%);
-  box-shadow: 0px 0px 10px 1px rgb(0 0 0 / 50%);
-  overflow: hidden;
-  font-size: 14pt;
-  font-weight: 400;
-  margin-bottom: 20px;
-}
-
-.expndGroup .header .textContainer{
-  float: left;
-  height: 75px;
-  margin: 15px 0 0 20px;
-}
-
-.expndGroup .header .switchContainer{
-  float: right;
-  height: 75px;
-  margin: 15px 15px 0 0;
-}
-
-
-
 @media screen and (max-width: 750px) {
   body{
     background-image: url("images/mobile_background.png");
@@ -572,10 +592,6 @@ input[type="range"]::-ms-fill-upper {
     margin: 0;
   }
 
-  .expndGroupContainer{
-    width: 100%;
-    margin: 5px 0 0 0;
-  }
 
   .topbar .switchContainer p{
     margin: 2px 15px 0 10px;
