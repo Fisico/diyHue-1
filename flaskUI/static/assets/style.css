@@ -476,64 +476,37 @@ input[type="range"]::-ms-fill-upper {
   color:#eee;
 }
 
-.topBar{
-  position: relative;
-  width: 100%;
+.topbar .switchContainer{
+  float: right;
+  margin: 10px 0 0 0;
 }
 
-  .topBar P{
-    margin: 0 0 5px 5px;
-    color: #B9B9B9;
-    font-size: 12pt;
-  }
-
-  .topBar .btnBack{
-    width: 100px;
-    height: 40px;
-    background: rgba(0, 0, 0, .4);
-    position: absolute;
-    top: 0;
-    right:0;
-    border-top-right-radius: 8px;
-    border-top-left-radius: 8px;
-  }
-
-    .topBar .btnBack i{
-      margin: 5px 10px 0 10px;
-      font-size: 15pt;
-    }
-
-  .topbar .switchContainer{
+  .topbar .switchContainer p{
     float: right;
-    margin: 10px 0 0 0;
+    color: #eee;
+    margin: 2px 50px 0 10px;
   }
 
-    .topbar .switchContainer p{
-      float: right;
-      color: #eee;
-      margin: 2px 50px 0 10px;
-    }
+  .topbar .switchContainer .slider{
+    background: rgba(0, 0, 0, .9);
+  }
 
-    .topbar .switchContainer .slider{
-      background: rgba(0, 0, 0, .9);
-    }
+  .topbar .groupToggle{
+    float: right;
+    color: #aaa;
+    margin: 2px 50px 0 10px;
+    height: 100%;
+    line-height: 47px;
+    font-size: 20pt;
+  }
 
-    .topbar .groupToggle{
-      float: right;
-      color: #aaa;
-      margin: 2px 50px 0 10px;
-      height: 100%;
-      line-height: 47px;
-      font-size: 20pt;
-    }
+  .topbar .groupToggle:active{
+    color: #fff;
+  }
 
-    .topbar .groupToggle:active{
-      color: #fff;
-    }
-
-    .topbar .groupToggle:focus{
-      color: #fff;
-    }
+  .topbar .groupToggle:focus{
+    color: #fff;
+  }
 
 
 @media screen and (max-width: 750px) {
