@@ -180,6 +180,7 @@ h1.contentheader{
   font-size: 17pt;
   padding: 5px 13px 6px 10px;
   border-bottom-right-radius: 10px;
+  float: right;
 }
 
 
@@ -569,6 +570,21 @@ input[type="range"]::-ms-fill-upper {
 
   .topbar .switchContainer p{
     margin: 2px 15px 0 10px;
+  }
+
+  .sidebar{
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index:1000;
+    background: rgba(0,0,0,0.8);
+    -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  }
+
+  .sidebar.active {
+    transform: translateY(0);
   }
 
 }
